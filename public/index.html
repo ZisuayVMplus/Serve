@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Luau OBF</title>
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --border: #2a2a32;
+    --accent: #7c6af7;
+    --accent2: #a78bfa;
+    --text: #e2e2e8;
+    --muted: #6b6b7a;
+    --success: #34d399;
+    --err: #f87171;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .badge {
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 99px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    -webkit-text-fill-color: #fff;
+  }
+
+  main {
+    width: 100%;
+    max-width: 1100px;
+    padding: 32px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .editors {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 720px) {
+    .editors { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  textarea {
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: none;
+    color: var(--text);
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    padding: 16px;
+    min-height: 340px;
+    width: 100%;
+  }
+
+  textarea::placeholder { color: var(--muted); }
+  textarea[readonly] { opacity: 0.85; }
+
+  /* ── Drop zone overlay ── */
+  .drop-zone {
+    position: relative;
+  }
+  .drop-zone.drag-over::after {
+    content: '📂  Drop .lua / .luau file here';
+    position: absolute;
+    inset: 0;
+    background: rgba(124,106,247,0.12);
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent2);
+    pointer-events: none;
+  }
+
+  /* ── Icon buttons inside panel header ── */
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    background: transparent;
+    padding: 4px 9px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .icon-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+    background: rgba(124,106,247,0.08);
+  }
+  .icon-btn svg { flex-shrink: 0; }
+
+  /* hidden real file input */
+  #fileInput { display: none; }
+
+  /* ── Bottom controls ── */
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.15s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #6857f0);
+    color: #fff;
+    padding: 12px 28px;
+    box-shadow: 0 0 20px rgba(124,106,247,0.3);
+    flex: 1;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 30px rgba(124,106,247,0.5); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-secondary:hover { border-color: var(--accent); background: rgba(124,106,247,0.08); }
+  .btn-secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .stat span { color: var(--accent2); font-weight: 700; margin-left: 4px; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1e1e28;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--success);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.2s;
+    pointer-events: none;
+    z-index: 99;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  .spin { display: inline-block; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* filename tag */
+  .file-tag {
+    background: rgba(124,106,247,0.15);
+    color: var(--accent2);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-size: 11px;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Luau OBF</div>
+  <div class="badge">String</div>
+</header>
+
+<!-- hidden file input -->
+<input type="file" id="fileInput" accept=".lua,.luau,.txt">
+
+<main>
+  <div class="editors">
+
+    <!-- INPUT PANEL -->
+    <div class="panel drop-zone" id="dropZone">
+      <div class="panel-header">
+        <div class="panel-header-left">
+          <span>Input</span>
+          <span class="file-tag" id="inputFileName" style="display:none"></span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span id="inputLen" style="font-size:11px;color:var(--muted)">0 chars</span>
+          <!-- Upload button -->
+          <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Upload .lua / .luau file">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            Upload
+          </button>
+        </div>
+      </div>
+      <textarea id="input" placeholder="-- paste your Luau source here&#10;print('Hello, World!')&#10;&#10;local x = 42&#10;print(x * 2)"></textarea>
+    </div>
+
+    <!-- OUTPUT PANEL -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>Output</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span id="outputLen" style="font-size:11px;color:var(--muted)">—</span>
+          <!-- Copy button -->
+          <button class="icon-btn" id="copyBtn" onclick="copyOutput()" title="Copy to clipboard" disabled>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copy
+          </button>
+          <!-- Download button -->
+          <button class="icon-btn" id="dlBtn" onclick="downloadOutput()" title="Download as .lua file" disabled>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Download
+          </button>
+        </div>
+      </div>
+      <textarea id="output" readonly placeholder="-- obfuscated output will appear here"></textarea>
+    </div>
+
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button class="btn-primary" id="obfBtn" onclick="obfuscate()">⚡ Obfuscate</button>
+    <button class="btn-secondary" id="clearBtn" onclick="clearAll()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+      </svg>
+      Clear
+    </button>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats" id="stats" style="display:none">
+    <div class="stat">Original<span id="s-orig"></span></div>
+    <div class="stat">Obfuscated<span id="s-obf"></span></div>
+    <div class="stat">Size ratio<span id="s-ratio"></span></div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const inputEl   = document.getElementById('input');
+const outputEl  = document.getElementById('output');
+const obfBtn    = document.getElementById('obfBtn');
+const copyBtn   = document.getElementById('copyBtn');
+const dlBtn     = document.getElementById('dlBtn');
+const stats     = document.getElementById('stats');
+const dropZone  = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileTag   = document.getElementById('inputFileName');
+
+let uploadedFileName = 'obfuscated.lua';
+
+// ── Input char count ──────────────────────────────────────────────────────────
+inputEl.addEventListener('input', updateInputLen);
+
+function updateInputLen() {
+  document.getElementById('inputLen').textContent =
+    inputEl.value.length.toLocaleString() + ' chars';
+}
+
+// ── File upload (button) ──────────────────────────────────────────────────────
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (file) readFile(file);
+  fileInput.value = ''; // reset so same file can be re-uploaded
+});
+
+// ── Drag & drop ───────────────────────────────────────────────────────────────
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    inputEl.value = ev.target.result;
+    updateInputLen();
+    // store base name for download
+    uploadedFileName = file.name.replace(/\.(lua|luau|txt)$/i, '_obf.lua');
+    fileTag.textContent = file.name;
+    fileTag.style.display = 'inline';
+  };
+  reader.readAsText(file);
+}
+
+// ── Obfuscate ─────────────────────────────────────────────────────────────────
+async function obfuscate() {
+  const src = inputEl.value.trim();
+  if (!src) return;
+
+  obfBtn.disabled = true;
+  obfBtn.innerHTML = '<span class="spin">◌</span> Obfuscating…';
+  outputEl.value = '';
+  stats.style.display = 'none';
+  copyBtn.disabled = true;
+  dlBtn.disabled = true;
+  document.getElementById('outputLen').textContent = '—';
+
+  try {
+    const res = await fetch('/api/obfuscate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: src })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    outputEl.value = data.result;
+    document.getElementById('outputLen').textContent =
+      data.result.length.toLocaleString() + ' chars';
+
+    document.getElementById('s-orig').textContent  = fmtBytes(data.stats.originalSize);
+    document.getElementById('s-obf').textContent   = fmtBytes(data.stats.obfuscatedSize);
+    document.getElementById('s-ratio').textContent = data.stats.ratio;
+    stats.style.display = 'flex';
+
+    copyBtn.disabled = false;
+    dlBtn.disabled = false;
+
+  } catch (e) {
+    outputEl.value = '-- Error: ' + e.message;
+  } finally {
+    obfBtn.disabled = false;
+    obfBtn.innerHTML = '⚡ Obfuscate';
+  }
+}
+
+// ── Copy output ───────────────────────────────────────────────────────────────
+async function copyOutput() {
+  if (!outputEl.value) return;
+  await navigator.clipboard.writeText(outputEl.value);
+  showToast('Copied to clipboard ✓');
+}
+
+// ── Download output ───────────────────────────────────────────────────────────
+function downloadOutput() {
+  if (!outputEl.value) return;
+  const blob = new Blob([outputEl.value], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = uploadedFileName;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Downloaded ' + uploadedFileName + ' ✓');
+}
+
+// ── Clear all ─────────────────────────────────────────────────────────────────
+function clearAll() {
+  inputEl.value = '';
+  outputEl.value = '';
+  updateInputLen();
+  document.getElementById('outputLen').textContent = '—';
+  stats.style.display = 'none';
+  fileTag.style.display = 'none';
+  copyBtn.disabled = true;
+  dlBtn.disabled = true;
+  uploadedFileName = 'obfuscated.lua';
+}
+
+// ── Toast helper ──────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function fmtBytes(n) {
+  return n < 1024 ? n + ' B' : (n / 1024).toFixed(1) + ' KB';
+}
+</script>
+
+</body>
+</html>
